@@ -104,7 +104,9 @@ test('menus work from the keyboard alone', async ({ page, browserName }) => {
   await expect(page.locator('a[href="#/settings"]')).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.locator('#screen-settings')).toBeVisible();
   await page.locator('input[name=theme][value=dark]').focus();
+  await expect(page.locator('input[name=theme][value=dark]')).toBeFocused();
   await page.keyboard.press('Space');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.keyboard.press('Escape');
