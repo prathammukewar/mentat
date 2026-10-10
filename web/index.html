@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mentat</title>
+    <meta name="description" content="A mental arithmetic speed drill. Solve as many problems as you can in two minutes, then see where the time went." />
+    <meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <script>
+      // Apply the saved theme before first paint so there's no flash.
+      try {
+        var p = JSON.parse(localStorage.getItem('mentat.prefs') || '{}');
+        if (p.theme === 'light' || p.theme === 'dark') document.documentElement.dataset.theme = p.theme;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <main id="main">
+      <section id="screen-home" class="screen home" aria-labelledby="home-title" hidden>
+        <header class="home-head">
+          <h1 id="home-title" class="wordmark">Mentat</h1>
+          <nav class="nav" aria-label="Main">
+            <a href="#/history">History</a>
+            <a href="#/settings">Settings</a>
+          </nav>
+        </header>
+
+        <div class="home-main">
+          <p class="lede">Solve as many arithmetic problems as you can before time runs out. The next problem appears the moment your answer is right.</p>
+          <button id="play-classic" class="play" type="button">
+            <span class="play-label">Play</span>
+            <span class="play-sub">Classic, 2 minutes</span>
+          </button>
+          <p class="hint key-hint">or press <kbd>Enter</kbd></p>
+          <p id="home-stats" class="home-stats" aria-live="polite"></p>
+        </div>
+
+        <details id="custom" class="custom">
+          <summary>Custom game</summary>
+          <form id="custom-form" class="custom-form" novalidate>
+            <fieldset>
+              <legend>Operations</legend>
+              <div class="op-row">
+                <label class="check"><input type="checkbox" name="add" /> Addition</label>
+                <span class="range">
+                  (<input name="addLeftMin" inputmode="numeric" aria-label="Addition left minimum" /> to
+                  <input name="addLeftMax" inputmode="numeric" aria-label="Addition left maximum" />) +
+                  (<input name="addRightMin" inputmode="numeric" aria-label="Addition right minimum" /> to
+                  <input name="addRightMax" inputmode="numeric" aria-label="Addition right maximum" />)
+                </span>
+              </div>
+              <div class="op-row">
+                <label class="check"><input type="checkbox" name="sub" /> Subtraction</label>
+                <span class="range muted">Addition problems in reverse</span>
+              </div>
+              <div class="op-row">
+                <label class="check"><input type="checkbox" name="mul" /> Multiplication</label>
+                <span class="range">
+                  (<input name="mulLeftMin" inputmode="numeric" aria-label="Multiplication left minimum" /> to
+                  <input name="mulLeftMax" inputmode="numeric" aria-label="Multiplication left maximum" />) ×
+                  (<input name="mulRightMin" inputmode="numeric" aria-label="Multiplication right minimum" /> to
+                  <input name="mulRightMax" inputmode="numeric" aria-label="Multiplication right maximum" />)
+                </span>
+              </div>
+              <div class="op-row">
+                <label class="check"><input type="checkbox" name="div" /> Division</label>
+                <span class="range muted">Multiplication problems in reverse</span>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Duration</legend>
+              <div class="segmented">
+                <label><input type="radio" name="duration" value="30" /><span>30 s</span></label>
+                <label><input type="radio" name="duration" value="60" /><span>60 s</span></label>
+                <label><input type="radio" name="duration" value="120" /><span>120 s</span></label>
+                <label><input type="radio" name="duration" value="300" /><span>300 s</span></label>
+              </div>
+            </fieldset>
+            <p id="custom-error" class="error" role="alert"></p>
+            <div class="form-actions">
+              <button type="submit" class="button primary">Start custom game</button>
+              <button type="button" id="custom-reset" class="button">Reset to classic</button>
+            </div>
+          </form>
+        </details>
+
+        <p class="about">Classic uses the classic Zetamac settings: addition with both numbers from 2 to 100, multiplication with 2 to 12 times 2 to 100, and subtraction and division as those problems in reverse. Wrong answers just stay in the box until you fix them.</p>
+      </section>
+
+      <section id="screen-game" class="screen game" aria-label="Game" hidden>
+        <div class="hud">
+          <span>Seconds left: <b id="g-time">120</b></span>
+          <span>Score: <b id="g-score">0</b></span>
+        </div>
+        <div class="band">
+          <div class="row">
+            <span id="g-problem" class="problem" aria-live="off"></span>
+            <span class="equals">=</span>
+            <input
+              id="g-input"
+              class="answer"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              enterkeyhint="next"
+              aria-label="Answer"
+            />
+            <output id="g-entry" class="answer entry" aria-label="Answer" hidden></output>
+          </div>
+        </div>
+        <div id="g-keypad" class="keypad" hidden>
+          <button type="button" data-key="1" tabindex="-1">1</button>
+          <button type="button" data-key="2" tabindex="-1">2</button>
+          <button type="button" data-key="3" tabindex="-1">3</button>
+          <button type="button" data-key="4" tabindex="-1">4</button>
+          <button type="button" data-key="5" tabindex="-1">5</button>
+          <button type="button" data-key="6" tabindex="-1">6</button>
+          <button type="button" data-key="7" tabindex="-1">7</button>
+          <button type="button" data-key="8" tabindex="-1">8</button>
+          <button type="button" data-key="9" tabindex="-1">9</button>
+          <button type="button" data-key="clear" class="fn" tabindex="-1" aria-label="Clear">C</button>
+          <button type="button" data-key="0" tabindex="-1">0</button>
+          <button type="button" data-key="back" class="fn" tabindex="-1" aria-label="Backspace">⌫</button>
+        </div>
+        <button id="g-quit" class="quit" type="button">Quit <kbd>Esc</kbd></button>
+      </section>
+
+      <section id="screen-results" class="screen results" aria-labelledby="r-title" hidden>
+        <p id="r-mode" class="eyebrow"></p>
+        <h1 id="r-title" class="sr-only">Results</h1>
+        <p class="big-score"><span id="r-score">0</span><span class="unit">correct</span></p>
+        <p id="r-best" class="best"></p>
+        <dl class="tiles">
+          <div><dt>Per minute</dt><dd id="r-pace"></dd></div>
+          <div><dt>Average</dt><dd id="r-avg"></dd></div>
+          <div><dt>Wrong keys</dt><dd id="r-wrong"></dd></div>
+        </dl>
+        <div class="actions">
+          <button id="r-again" class="button primary" type="button">Play again <kbd>Enter</kbd></button>
+          <button id="r-same" class="button" type="button">Same problems</button>
+          <a class="button" href="#/">Menu</a>
+        </div>
+        <div class="results-grid">
+          <section aria-labelledby="r-ops-title">
+            <h2 id="r-ops-title">By operation</h2>
+            <table class="ops">
+              <thead><tr><th scope="col">Operation</th><th scope="col">Solved</th><th scope="col">Average</th></tr></thead>
+              <tbody id="r-ops"></tbody>
+            </table>
+          </section>
+          <section aria-labelledby="r-slow-title">
+            <h2 id="r-slow-title">Slowest five</h2>
+            <ol id="r-slow" class="slow"></ol>
+            <p id="r-unfinished" class="muted small"></p>
+          </section>
+        </div>
+        <p id="r-seed" class="seed"></p>
+      </section>
+
+      <section id="screen-history" class="screen page" aria-labelledby="h-title" hidden>
+        <header class="page-head">
+          <a class="back" href="#/">Menu</a>
+          <h1 id="h-title">History</h1>
+        </header>
+        <div class="field">
+          <label for="h-group">Rules</label>
+          <select id="h-group"></select>
+        </div>
+        <dl id="h-stats" class="tiles"></dl>
+        <div id="h-chart" class="chart-host"></div>
+        <table class="runs">
+          <thead><tr><th scope="col">When</th><th scope="col">Score</th><th scope="col">Per minute</th><th scope="col">Input</th></tr></thead>
+          <tbody id="h-runs"></tbody>
+        </table>
+        <p id="h-empty" class="muted" hidden>No runs yet. Play a game and it will show up here.</p>
+        <p class="danger-zone"><button id="h-clear" class="button subtle" type="button">Delete all history</button></p>
+      </section>
+
+      <section id="screen-settings" class="screen page" aria-labelledby="s-title" hidden>
+        <header class="page-head">
+          <a class="back" href="#/">Menu</a>
+          <h1 id="s-title">Settings</h1>
+        </header>
+        <form id="settings-form" class="settings">
+          <fieldset>
+            <legend>Theme</legend>
+            <div class="segmented">
+              <label><input type="radio" name="theme" value="system" /><span>System</span></label>
+              <label><input type="radio" name="theme" value="light" /><span>Light</span></label>
+              <label><input type="radio" name="theme" value="dark" /><span>Dark</span></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Sound on a correct answer</legend>
+            <div class="segmented">
+              <label><input type="radio" name="sound" value="off" /><span>Off</span></label>
+              <label><input type="radio" name="sound" value="on" /><span>On</span></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Motion</legend>
+            <div class="segmented">
+              <label><input type="radio" name="motion" value="system" /><span>System</span></label>
+              <label><input type="radio" name="motion" value="reduce" /><span>Reduced</span></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>On-screen keypad</legend>
+            <div class="segmented">
+              <label><input type="radio" name="keypad" value="auto" /><span>Touch screens</span></label>
+              <label><input type="radio" name="keypad" value="always" /><span>Always</span></label>
+              <label><input type="radio" name="keypad" value="never" /><span>Never</span></label>
+            </div>
+          </fieldset>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
