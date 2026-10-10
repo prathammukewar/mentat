@@ -39,6 +39,15 @@
           <p id="home-stats" class="home-stats" aria-live="polite"></p>
         </div>
 
+        <section class="modes" aria-labelledby="modes-title">
+          <h2 id="modes-title" class="sr-only">Other modes</h2>
+          <a class="mode-card" href="#/ou">
+            <span class="mode-name">Over or under</span>
+            <span class="mode-desc">A hard problem and a number within 4 of the answer. Is the number over or under? 20 problems, 5 seconds each.</span>
+            <span id="ou-home-stats" class="mode-stats"></span>
+          </a>
+        </section>
+
         <details id="custom" class="custom">
           <summary>Custom game</summary>
           <form id="custom-form" class="custom-form" novalidate>
@@ -133,10 +142,63 @@
         <button id="g-quit" class="quit" type="button">Quit <kbd>Esc</kbd></button>
       </section>
 
+      <section id="screen-ou" class="screen game ou" aria-label="Over or under" hidden>
+        <div class="hud">
+          <span>Problems left: <b id="ou-progress">20</b></span>
+          <span>Score: <b id="ou-score">0</b></span>
+        </div>
+        <div class="ou-track" aria-hidden="true"><div id="ou-bar" class="ou-bar"></div></div>
+        <div class="ou-stage">
+          <p id="ou-problem" class="ou-problem"></p>
+          <p class="ou-candidate"><span id="ou-shown" class="ou-shown"></span></p>
+          <p class="ou-ask">Is this number over or under the answer?</p>
+          <p id="ou-last" class="ou-last" aria-live="polite"></p>
+        </div>
+        <div class="ou-controls">
+          <div class="ou-buttons">
+            <button id="ou-under" type="button" class="ou-btn"><span aria-hidden="true">↓</span> Under</button>
+            <button id="ou-over" type="button" class="ou-btn">Over <span aria-hidden="true">↑</span></button>
+          </div>
+          <p class="hint key-hint">Arrow keys work: <kbd>↓</kbd> or <kbd>←</kbd> for under, <kbd>↑</kbd> or <kbd>→</kbd> for over.</p>
+        </div>
+        <button id="ou-quit" class="quit" type="button">Quit <kbd>Esc</kbd></button>
+      </section>
+
+      <section id="screen-ou-results" class="screen results" aria-labelledby="our-title" hidden>
+        <p class="eyebrow">Over or under, 20 problems</p>
+        <h1 id="our-title" class="sr-only">Results</h1>
+        <p class="big-score"><span id="our-score" class="score-num">0</span><span class="unit">of 20 right</span></p>
+        <p id="our-best" class="best"></p>
+        <dl class="tiles">
+          <div><dt>Accuracy</dt><dd id="our-acc"></dd></div>
+          <div><dt>Average time</dt><dd id="our-avg"></dd></div>
+          <div><dt>Out of time</dt><dd id="our-timeouts"></dd></div>
+        </dl>
+        <div class="actions">
+          <button id="our-again" class="button primary" type="button">Play again <kbd>Enter</kbd></button>
+          <button id="our-same" class="button" type="button">Same problems</button>
+          <a class="button" href="#/">Menu</a>
+        </div>
+        <div class="results-grid">
+          <section aria-labelledby="our-ops-title">
+            <h2 id="our-ops-title">By operation</h2>
+            <table class="ops">
+              <thead><tr><th scope="col">Operation</th><th scope="col">Right</th><th scope="col">Average</th></tr></thead>
+              <tbody id="our-ops"></tbody>
+            </table>
+          </section>
+          <section aria-labelledby="our-miss-title">
+            <h2 id="our-miss-title">Misses</h2>
+            <ul id="our-misses" class="slow misses"></ul>
+          </section>
+        </div>
+        <p id="our-seed" class="seed"></p>
+      </section>
+
       <section id="screen-results" class="screen results" aria-labelledby="r-title" hidden>
         <p id="r-mode" class="eyebrow"></p>
         <h1 id="r-title" class="sr-only">Results</h1>
-        <p class="big-score"><span id="r-score">0</span><span class="unit">correct</span></p>
+        <p class="big-score"><span id="r-score" class="score-num">0</span><span class="unit">correct</span></p>
         <p id="r-best" class="best"></p>
         <dl class="tiles">
           <div><dt>Per minute</dt><dd id="r-pace"></dd></div>

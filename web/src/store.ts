@@ -1,11 +1,19 @@
+import { OU_KEY, type OuRun } from '../../core/overunder.ts';
 import { settingsKey } from '../../core/problems.ts';
 import type { Run } from '../../core/run.ts';
 
-// Local run history in IndexedDB. Each record is a Run plus its settings key
-// so personal bests and graphs can be grouped by rules.
+// Local run history in IndexedDB. Each record is a run plus a key for its
+// rules, so personal bests and graphs can be grouped.
 
-export interface StoredRun extends Run {
-  key: string;
+export type AnyRun = Run | OuRun;
+export type StoredRun = AnyRun & { key: string };
+
+export function isOu(run: AnyRun): run is OuRun {
+  return 'kind' in run && run.kind === 'ou';
+}
+
+export function runKey(run: AnyRun): string {
+  return isOu(run) ? OU_KEY : settingsKey(run.settings);
 }
 
 const DB_NAME = 'mentat';
@@ -38,8 +46,8 @@ function done<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
-export async function saveRun(run: Run): Promise<StoredRun> {
-  const stored: StoredRun = { ...run, key: settingsKey(run.settings) };
+export async function saveRun(run: AnyRun): Promise<StoredRun> {
+  const stored: StoredRun = { ...run, key: runKey(run) };
   const db = await open();
   const tx = db.transaction(STORE, 'readwrite');
   tx.objectStore(STORE).put(stored);

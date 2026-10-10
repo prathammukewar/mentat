@@ -11,6 +11,7 @@ Play it at **https://prathammukewar.github.io/mentat/**
 - **Results** show your score, problems per minute, average time for each operation, your five slowest problems and your personal best.
 - **History** keeps every run in your browser and graphs your scores over time. Nothing is sent anywhere.
 - **On a phone** you get a large keypad that reacts on touch-down and never opens the system keyboard. On a computer the answer box is focused for you and the number pad works.
+- **Over or under** is a second mode. You see a hard problem (4-digit plus or minus 4-digit, 4-digit times or divided by a 2-digit number, or the square root of a 4-digit number) and a whole number within 4 of the answer, never equal to it. You have 5 seconds to say whether that number is over or under the true answer. A run is 20 problems, a timeout counts as wrong, and the results list every miss with the exact answer. Use the arrow keys or the two buttons.
 - Reload during a game to start a fresh one, press Enter on the results screen to play again, and press Esc to quit.
 
 Head-to-head play on a shared problem stream is next.

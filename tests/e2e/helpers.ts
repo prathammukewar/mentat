@@ -29,3 +29,20 @@ export async function useCustom(page: Page, settings: object): Promise<void> {
     }
   }, settings);
 }
+
+/** The true answer to an over-or-under problem as shown on screen. */
+export function ouTruth(text: string): number {
+  if (text.startsWith('√')) return Math.sqrt(Number(text.slice(1)));
+  const [a, op, b] = text.split(' ');
+  const x = Number(a);
+  const y = Number(b);
+  const v = { '+': x + y, '−': x - y, '×': x * y, '÷': x / y }[op!];
+  if (v === undefined) throw new Error(`can't read "${text}"`);
+  return v;
+}
+
+export async function ouState(page: Page): Promise<{ problem: string; shown: number; over: boolean }> {
+  const problem = await page.locator('#ou-problem').innerText();
+  const shown = Number(await page.locator('#ou-shown').innerText());
+  return { problem, shown, over: shown > ouTruth(problem) };
+}

@@ -517,7 +517,8 @@ body[data-screen='game'] {
   align-items: baseline;
   gap: 12px;
 }
-#r-score {
+/* both results screens */
+.score-num {
   font-size: clamp(3.5rem, 14vw, 5.5rem);
   font-weight: 700;
   line-height: 1;
@@ -741,5 +742,162 @@ select {
   .range input {
     width: 3.3em;
     padding: 4px;
+  }
+}
+
+/* ---------- modes ---------- */
+
+.modes {
+  margin: 0 0 24px;
+}
+.mode-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.mode-card:hover {
+  border-color: var(--ink-2);
+}
+.mode-name {
+  font-weight: 600;
+}
+.mode-desc {
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+.mode-stats {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.mode-stats:empty {
+  display: none;
+}
+
+/* ---------- over or under ---------- */
+
+.ou-track {
+  height: 4px;
+  margin: 14px 20px 0;
+  background: var(--band);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ou-bar {
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  will-change: transform;
+}
+.ou-stage {
+  margin: auto 0 24px;
+  padding: 16px;
+  text-align: center;
+}
+.ou-problem {
+  margin: 0;
+  font-size: clamp(2.25rem, 9vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ou-candidate {
+  margin: 20px 0 0;
+}
+.ou-shown {
+  display: inline-block;
+  min-width: 5ch;
+  padding: 4px 18px;
+  border-radius: 10px;
+  background: var(--band);
+  color: var(--ink);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.ou-ask {
+  margin: 10px 0 0;
+  color: var(--ink-2);
+}
+.ou-controls {
+  padding: 0 16px;
+  text-align: center;
+}
+.ou-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 460px;
+  margin: 0 auto;
+}
+.ou-btn {
+  min-height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--key);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.375rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ou-btn:hover {
+  border-color: var(--ink-2);
+}
+.ou-btn:active {
+  background: var(--key-down);
+}
+.ou-last {
+  min-height: 3em;
+  margin: 16px auto 0;
+  max-width: 30em;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+.ou-last.wrong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.ou .quit {
+  margin: 12px auto 16px;
+}
+.ou .ou-controls {
+  margin-bottom: auto;
+}
+.misses li {
+  display: block;
+}
+.misses .detail {
+  display: block;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+@media (pointer: coarse) {
+  .ou-btn {
+    min-height: 104px;
+  }
+  .ou .quit {
+    order: -1;
+    align-self: flex-start;
+    margin: 0;
+  }
+  .ou .ou-stage {
+    margin: auto 0;
+  }
+  .ou .ou-controls {
+    margin-bottom: 0;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }

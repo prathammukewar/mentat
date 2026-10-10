@@ -1,13 +1,15 @@
-import { CLASSIC, CLASSIC_KEY, OPS, cloneSettings, isClassic, problemText, settingsKey, validateSettings, type GameSettings, type Op } from '../../core/problems.ts';
+import { CLASSIC, CLASSIC_KEY, OPS, cloneSettings, isClassic, problemText, validateSettings, type GameSettings, type Op } from '../../core/problems.ts';
+import { OU_COUNT, OU_KEY, OU_OPS, compareOu, formatAnswer, ouSummarize, ouText, type OuOp, type OuRun } from '../../core/overunder.ts';
 import { formatSeed, parseSeed, randomSeed } from '../../core/prng.ts';
 import type { Mode, Run } from '../../core/run.ts';
 import { summarize } from '../../core/stats.ts';
 import { renderChart } from './chart.ts';
 import { deviceClass, useKeypad } from './device.ts';
-import { Game } from './game.ts';
-import { applyPrefs, loadCustom, loadPrefs, savePrefs, saveCustom, type Prefs } from './prefs.ts';
+import { Game, newId } from './game.ts';
+import { OuGame } from './overunder.ts';
+import { applyPrefs, loadCustom, loadPrefs, reducedMotion, savePrefs, saveCustom, type Prefs } from './prefs.ts';
 import { primeSound } from './sound.ts';
-import { allRuns, bestFor, clearRuns, getRun, runsFor, saveRun, type StoredRun } from './store.ts';
+import { allRuns, clearRuns, getRun, isOu, runKey, runsFor, saveRun, type AnyRun, type StoredRun } from './store.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -15,6 +17,8 @@ const screens = {
   home: $('screen-home'),
   game: $('screen-game'),
   results: $('screen-results'),
+  ou: $('screen-ou'),
+  ouResults: $('screen-ou-results'),
   history: $('screen-history'),
   settings: $('screen-settings'),
 };
@@ -24,10 +28,11 @@ let prefs: Prefs = loadPrefs();
 applyPrefs(prefs);
 matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () => applyPrefs(prefs));
 
-let game: Game | null = null;
+let game: Game | OuGame | null = null;
 /** The run that just finished, kept so results show without waiting on storage. */
-let lastRun: Run | null = null;
-let lastBest: number | null = null;
+let lastRun: AnyRun | null = null;
+/** The best earlier run with the same rules, once it's been looked up. */
+let lastBest: StoredRun | null | undefined = undefined;
 let current: ScreenName = 'home';
 let inputGuardUntil = 0;
 
@@ -56,6 +61,23 @@ function rulesLabel(s: GameSettings): string {
   return `Custom: ${ops.join(', ')}, ${durationLabel(s.duration)}`;
 }
 
+const OU_NAME: Record<OuOp, string> = { ...OP_NAME, sqrt: 'Square root' };
+
+function labelFor(run: AnyRun): string {
+  return isOu(run) ? `Over or under, ${OU_COUNT} problems` : rulesLabel(run.settings);
+}
+
+/** Better run first. */
+function compareRuns(a: AnyRun, b: AnyRun): number {
+  if (isOu(a) && isOu(b)) return compareOu(a, b);
+  return b.score - a.score;
+}
+
+function bestOf(runs: StoredRun[], excludeId?: string): StoredRun | null {
+  const others = runs.filter((r) => r.id !== excludeId);
+  return others.length ? [...others].sort(compareRuns)[0]! : null;
+}
+
 const whenFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 // ---------- home ----------
@@ -68,13 +90,21 @@ async function renderHome(): Promise<void> {
     const runs = await runsFor(CLASSIC_KEY);
     if (runs.length === 0) {
       stats.textContent = '';
-      return;
+    } else {
+      const best = Math.max(...runs.map((r) => r.score));
+      const last = runs[runs.length - 1]!.score;
+      stats.textContent = `Best ${best} · Last ${last} · ${runs.length} classic run${runs.length === 1 ? '' : 's'}`;
     }
-    const best = Math.max(...runs.map((r) => r.score));
-    const last = runs[runs.length - 1]!.score;
-    stats.textContent = `Best ${best} · Last ${last} · ${runs.length} classic run${runs.length === 1 ? '' : 's'}`;
   } catch {
     stats.textContent = '';
+  }
+  const ouStats = $('ou-home-stats');
+  try {
+    const runs = await runsFor(OU_KEY);
+    const best = bestOf(runs);
+    ouStats.textContent = best ? `Best ${best.score} of ${OU_COUNT} · ${runs.length} run${runs.length === 1 ? '' : 's'}` : '';
+  } catch {
+    ouStats.textContent = '';
   }
 }
 
@@ -177,22 +207,62 @@ function startGame(mode: Mode, seed: number): void {
 
 $('g-quit').addEventListener('click', () => game?.quit());
 
-async function finished(run: Run): Promise<void> {
+function startOu(seed: number): void {
+  game?.abort();
+  show('ou');
+  game = new OuGame(
+    {
+      screen: screens.ou,
+      progress: $('ou-progress'),
+      score: $('ou-score'),
+      problem: $('ou-problem'),
+      shown: $('ou-shown'),
+      bar: $('ou-bar'),
+      last: $('ou-last'),
+      over: $('ou-over'),
+      under: $('ou-under'),
+    },
+    {
+      seed,
+      sound: prefs.sound,
+      reducedMotion: reducedMotion(prefs),
+      device: deviceClass(),
+      newId,
+      onEnd: (run) => {
+        game = null;
+        void finished(run);
+      },
+      onQuit: () => {
+        game = null;
+        location.hash = '#/';
+      },
+    },
+  );
+  game.start();
+}
+
+$('ou-quit').addEventListener('click', () => game?.quit());
+
+async function finished(run: AnyRun): Promise<void> {
   lastRun = run;
-  lastBest = null;
+  lastBest = undefined;
   // Swallow keys for a moment so a keystroke typed as time ran out
   // doesn't press a button on the results screen.
   inputGuardUntil = performance.now() + 700;
   history.replaceState(null, '', `#/results/${run.id}`);
-  renderResults(run, undefined);
+  showResults(run, undefined);
   try {
-    const key = settingsKey(run.settings);
-    lastBest = await bestFor(key);
+    lastBest = bestOf(await runsFor(runKey(run)));
     await saveRun(run);
-    if (lastRun === run && current === 'results') renderBest(run, lastBest);
+    if (lastRun === run && (current === 'results' || current === 'ouResults')) showResults(run, lastBest, false);
   } catch {
-    $('r-best').textContent = 'This run could not be saved to your history.';
+    $(isOu(run) ? 'our-best' : 'r-best').textContent = 'This run could not be saved to your history.';
   }
+}
+
+function showResults(run: AnyRun, previous: StoredRun | null | undefined, focus = true): void {
+  if (isOu(run)) renderOuResults(run, previous, focus);
+  else renderResults(run, previous === undefined ? undefined : (previous?.score ?? null), focus);
 }
 
 // ---------- results ----------
@@ -210,7 +280,7 @@ function renderBest(run: Run, previousBest: number | null | undefined): void {
   }
 }
 
-function renderResults(run: Run, previousBest: number | null | undefined): void {
+function renderResults(run: Run, previousBest: number | null | undefined, focus = true): void {
   show('results');
   const s = summarize(run);
   $('r-mode').textContent = rulesLabel(run.settings);
@@ -274,7 +344,70 @@ function renderResults(run: Run, previousBest: number | null | undefined): void 
     if (run.mode === 'custom') saveCustom(run.settings);
     location.hash = `#/play${run.mode === 'custom' ? '/custom' : ''}?seed=${formatSeed(run.seed)}`;
   };
-  again.focus({ preventScroll: true });
+  if (focus) again.focus({ preventScroll: true });
+}
+
+// ---------- over or under results ----------
+
+function renderOuResults(run: OuRun, previous: StoredRun | null | undefined, focus = true): void {
+  show('ouResults');
+  const s = ouSummarize(run);
+  $('our-score').textContent = String(s.score);
+  const best = $('our-best');
+  if (previous === undefined) best.textContent = '';
+  else if (previous === null) best.textContent = 'First over or under run.';
+  else if (compareRuns(run, previous) < 0) best.textContent = `New personal best. Previous best was ${previous.score} of ${OU_COUNT}.`;
+  else best.textContent = `Personal best: ${previous.score} of ${OU_COUNT}`;
+  $('our-acc').textContent = `${Math.round(s.accuracy * 100)}%`;
+  $('our-avg').textContent = seconds(s.avgMs);
+  $('our-timeouts').textContent = String(s.timeouts);
+
+  const ops = $('our-ops');
+  ops.replaceChildren();
+  for (const op of OU_OPS) {
+    const o = s.byOp[op];
+    if (o.count === 0) continue;
+    const tr = document.createElement('tr');
+    for (const text of [OU_NAME[op], `${o.right} of ${o.count}`, seconds(o.avgMs)]) {
+      const td = document.createElement('td');
+      td.textContent = text;
+      tr.append(td);
+    }
+    ops.append(tr);
+  }
+
+  const misses = $('our-misses');
+  misses.replaceChildren();
+  for (const m of s.misses) {
+    const li = document.createElement('li');
+    const q = document.createElement('span');
+    q.className = 'q';
+    q.textContent = `${ouText(m.problem)} = ${formatAnswer(m.problem.answer)}`;
+    const d = document.createElement('span');
+    d.className = 'detail';
+    const said = m.code === -1 ? 'you ran out of time' : `you said ${m.code === 1 ? 'over' : 'under'}`;
+    d.textContent = `${m.problem.shown} is ${m.problem.over ? 'over' : 'under'}; ${said}`;
+    li.append(q, d);
+    misses.append(li);
+  }
+  if (s.misses.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = 'None. Every one right.';
+    misses.append(li);
+  }
+  $('our-seed').textContent = `Seed ${formatSeed(run.seed)}`;
+
+  const again = $('our-again');
+  again.onclick = () => {
+    primeIfSound();
+    location.hash = '#/ou';
+  };
+  $('our-same').onclick = () => {
+    primeIfSound();
+    location.hash = `#/ou?seed=${formatSeed(run.seed)}`;
+  };
+  if (focus) again.focus({ preventScroll: true });
 }
 
 // ---------- history ----------
@@ -292,7 +425,7 @@ async function renderHistory(): Promise<void> {
   const groups = new Map<string, { label: string; count: number }>();
   groups.set(CLASSIC_KEY, { label: 'Classic, 2 minutes', count: 0 });
   for (const r of historyRuns) {
-    const g = groups.get(r.key) ?? { label: rulesLabel(r.settings), count: 0 };
+    const g = groups.get(r.key) ?? { label: labelFor(r), count: 0 };
     g.count++;
     groups.set(r.key, g);
   }
@@ -311,6 +444,9 @@ async function renderHistory(): Promise<void> {
 function renderGroup(): void {
   const runs = historyRuns.filter((r) => r.key === groupSelect.value);
   const empty = runs.length === 0;
+  const ou = groupSelect.value === OU_KEY;
+  const head = $('h-runs').closest('table')!.querySelectorAll('th');
+  head[2]!.textContent = ou ? 'Average time' : 'Per minute';
   $('h-empty').hidden = !empty;
   $('h-clear').hidden = historyRuns.length === 0;
 
@@ -348,7 +484,9 @@ function renderGroup(): void {
     link.href = `#/results/${r.id}`;
     link.textContent = whenFmt.format(r.startedAt);
     when.append(link);
-    const cells = [String(r.score), (r.score / (r.settings.duration / 60)).toFixed(1), r.input];
+    const cells = isOu(r)
+      ? [`${r.score} of ${r.count}`, seconds(r.times.reduce((t, x) => t + x, 0) / r.times.length), r.input]
+      : [String(r.score), (r.score / (r.settings.duration / 60)).toFixed(1), r.input];
     tr.append(when);
     for (const c of cells) {
       const td = document.createElement('td');
@@ -413,7 +551,7 @@ async function route(): Promise<void> {
   const [path, query = ''] = hash.split('?');
   const params = new URLSearchParams(query);
 
-  if (game && path !== '/play' && path !== '/play/custom') {
+  if (game && path !== '/play' && path !== '/play/custom' && path !== '/ou') {
     game.abort();
     game = null;
   }
@@ -423,16 +561,20 @@ async function route(): Promise<void> {
     startGame(path === '/play' ? 'classic' : 'custom', seed);
     return;
   }
+  if (path === '/ou') {
+    startOu(parseSeed(params.get('seed') ?? '') ?? randomSeed());
+    return;
+  }
   if (path.startsWith('/results/')) {
     const id = decodeURIComponent(path.slice('/results/'.length));
     if (lastRun && lastRun.id === id) {
-      renderResults(lastRun, lastBest);
+      showResults(lastRun, lastBest);
       return;
     }
     try {
       const run = await getRun(id);
       if (run) {
-        renderResults(run, undefined);
+        showResults(run, undefined);
         return;
       }
     } catch {
@@ -456,7 +598,7 @@ document.addEventListener(
       e.stopPropagation();
       return;
     }
-    if (e.key === 'Escape' && current !== 'game' && current !== 'home') {
+    if (e.key === 'Escape' && current !== 'game' && current !== 'ou' && current !== 'home') {
       e.preventDefault();
       location.hash = '#/';
     }
@@ -466,7 +608,7 @@ document.addEventListener(
       primeIfSound();
       location.hash = '#/play';
     }
-    if (prefs.sound && current === 'game') primeSound();
+    if (prefs.sound && (current === 'game' || current === 'ou')) primeSound();
   },
   true,
 );

@@ -290,7 +290,7 @@ function inputKind(keys: number, touches: number, keypad: boolean): InputKind {
   return touches > keys ? 'touch' : 'keyboard';
 }
 
-function newId(): string {
+export function newId(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   const b = new Uint8Array(16);
   crypto.getRandomValues(b);

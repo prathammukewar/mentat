@@ -4,6 +4,7 @@
 
 import { Rng } from '../core/prng.ts';
 import { CLASSIC, problemAt, type GameSettings } from '../core/problems.ts';
+import { ouProblemAt } from '../core/overunder.ts';
 
 const SEEDS = [0, 1, 42, 0x9e3779b9, 0xdeadbeef, 0xffffffff];
 
@@ -38,6 +39,13 @@ const out = {
       }),
     })),
   },
+  overunder: SEEDS.map((seed) => ({
+    seed,
+    problems: Array.from({ length: 30 }, (_, i) => {
+      const p = ouProblemAt(seed, i);
+      return [p.op, p.a, p.b ?? null, p.shown, p.over];
+    }),
+  })),
 };
 
 console.log(JSON.stringify(out));

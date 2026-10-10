@@ -28,6 +28,14 @@ test('the generator gives the golden sequences in this browser', async ({ page }
           });
         }
       };
+      const { ouProblemAt } = await import(`/@fs${core}/overunder.ts`);
+      for (const { seed, problems } of golden.overunder) {
+        problems.forEach((want: unknown[], i: number) => {
+          const p = ouProblemAt(seed, i);
+          const got = [p.op, p.a, p.b ?? null, p.shown, p.over];
+          if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`ou ${seed}[${i}] ${got} != ${want}`);
+        });
+      }
       check(CLASSIC, golden.classic, 'classic');
       check(golden.custom.settings, golden.custom.seeds, 'custom');
       return bad;
